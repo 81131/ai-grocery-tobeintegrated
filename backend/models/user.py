@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+
 from sqlalchemy import Column, Integer, String, Boolean, ForeignKey, DateTime, Text, Date, Float
 from sqlalchemy.orm import relationship, Session
 from sqlalchemy.sql import func
@@ -16,6 +16,7 @@ class User(Base):
     password_hash = Column(Text, nullable=False)
     role = Column(String(20), default="customer") # customer, staff, admin, driver
     is_active = Column(Boolean, default=True)
+    is_deleted = Column(Boolean, default=False)
     last_login = Column(DateTime(timezone=True), onupdate=func.now())
     
     # Merged Profile fields

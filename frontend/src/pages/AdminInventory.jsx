@@ -62,7 +62,7 @@ function AdminInventory() {
     const headers = { 'Authorization': `Bearer ${token}` };
     try {
       const [prodRes, catRes, supRes] = await Promise.all([
-        fetch('http://localhost:8000/inventory/products/all', { headers }),
+        fetch('http://localhost:8000/inventory/products', { headers }),
         fetch('http://localhost:8000/inventory/categories', { headers }),
         fetch('http://localhost:8000/suppliers/', { headers })
       ]);

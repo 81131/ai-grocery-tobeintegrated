@@ -1,12 +1,40 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { ArrowLeft, ShoppingCart, Share2 } from 'lucide-react';
+import { ArrowLeft, ShoppingCart, Share2, Star, MessageSquare } from 'lucide-react';
+
+function StarRating({ value }) {
+  return (
+    <div style={{ display: 'flex', gap: '2px' }}>
+      {[1, 2, 3, 4, 5].map(i => (
+        <Star
+          key={i}
+          size={14}
+          color={value >= i ? '#f59e0b' : '#d1d5db'}
+          fill={value >= i ? '#f59e0b' : 'none'}
+        />
+      ))}
+    </div>
+  );
+}
 
 function ProductDetails() {
   const location = useLocation();
   const navigate = useNavigate();
   const item = location.state; 
   const [quantity, setQuantity] = useState(1);
+  const [reviews, setReviews] = useState([]);
+  const [loadingReviews, setLoadingReviews] = useState(false);
+
+  useEffect(() => {
+    if (item && item.id) {
+      setLoadingReviews(true);
+      fetch(`http://localhost:8000/inventory/products/${item.id}/feedbacks`)
+        .then(r => r.ok ? r.json() : [])
+        .then(data => setReviews(data))
+        .catch(err => console.error("Could not fetch reviews"))
+        .finally(() => setLoadingReviews(false));
+    }
+  }, [item]);
 
   if (!item) {
     navigate('/');
@@ -120,6 +148,46 @@ const keywordList = item.keywords ? item.keywords.split(',').map(k => k.trim()) 
           </div>
         </div>
 
+      </div>
+
+      {/* Reviews Section */}
+      <div style={{ marginTop: '40px' }}>
+        <h3 style={{ fontSize: '20px', fontWeight: '700', color: 'var(--text-main)', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <MessageSquare size={20} color="var(--color-primary)" /> Customer Reviews
+        </h3>
+        
+        {loadingReviews ? (
+          <p style={{ color: 'var(--text-light)' }}>Loading reviews...</p>
+        ) : reviews.length === 0 ? (
+          <div className="card" style={{ padding: '30px', textAlign: 'center', color: 'var(--text-light)' }}>
+            <p>No reviews yet for this product. Be the first to review!</p>
+          </div>
+        ) : (
+          <div style={{ display: 'grid', gap: '16px' }}>
+            {reviews.map(r => (
+              <div key={r.id} className="card" style={{ padding: '20px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '10px' }}>
+                  <div>
+                    <span style={{ fontWeight: '600', fontSize: '14px', color: 'var(--text-main)', display: 'block', marginBottom: '4px' }}>
+                      {r.user?.name || `Customer U${String(r.user_id).padStart(3, '0')}`}
+                    </span>
+                    <StarRating value={r.rating} />
+                  </div>
+                  <span style={{ fontSize: '12px', color: 'var(--text-light)' }}>
+                    {r.created_at ? new Date(r.created_at).toLocaleDateString() : ''}
+                  </span>
+                </div>
+                <p style={{ fontSize: '14px', color: 'var(--text-muted)', lineHeight: '1.5' }}>{r.message}</p>
+                {r.reply && (
+                  <div style={{ backgroundColor: '#f0fdf4', border: '1px solid #bbf7d0', padding: '12px', borderRadius: '8px', marginTop: '12px' }}>
+                    <div style={{ fontSize: '12px', fontWeight: '600', color: 'var(--color-primary)', marginBottom: '6px' }}>Store Reply</div>
+                    <p style={{ fontSize: '13px', color: 'var(--text-muted)', margin: 0 }}>{r.reply}</p>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );

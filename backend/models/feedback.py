@@ -9,8 +9,10 @@ class Feedback(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     user_name = Column(String, nullable=False)
+    user_id = Column(Integer, ForeignKey("users.user_id", ondelete="SET NULL"), nullable=True)
     message = Column(Text, nullable=False)
     product_name = Column(String, nullable=False) 
+    product_id = Column(Integer, ForeignKey("products.id", ondelete="CASCADE"), nullable=True)
     rating = Column(Integer, nullable=False)
     reply = Column(Text, nullable=True)
     role = Column(String, default="user")  # user or admin

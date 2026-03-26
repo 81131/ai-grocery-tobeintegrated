@@ -17,7 +17,7 @@ function AdminOrders() {
     if (!token) return navigate('/login');
 
     try {
-      const res = await fetch('http://localhost:8000/orders/all', {
+      const res = await fetch('http://localhost:8000/orders/', {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (res.ok) {

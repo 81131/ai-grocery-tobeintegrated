@@ -1,178 +1,105 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { useToast } from '../context/ToastContext';
-import { User, Mail, Lock, UserPlus, ArrowRight } from 'lucide-react';
+import { UserPlus, Mail, Lock, User, CheckCircle } from 'lucide-react';
 
-function Register() {
+export default function Register() {
   const navigate = useNavigate();
-  const { addToast } = useToast();
-  
-  // UPDATED: Replaced 'username' with 'firstName' and 'lastName'
-  const [formData, setFormData] = useState({
-    firstName: '',
-    lastName: '',
-    email: '',
-    password: '',
-    confirmPassword: ''
-  });
-  const [isLoading, setIsLoading] = useState(false);
+  const [form, setForm] = useState({ first_name: '', last_name: '', email: '', password: '', confirm_password: '' });
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState(false);
+  const [loading, setLoading] = useState(false);
 
-  const handleChange = (e) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
-  };
+  const handle = (e) => setForm(f => ({ ...f, [e.target.name]: e.target.value }));
 
-  const handleSubmit = async (e) => {
+  const submit = async (e) => {
     e.preventDefault();
-    
-    if (formData.password !== formData.confirmPassword) {
-      addToast("Passwords do not match!", "error");
-      return;
-    }
-
-    setIsLoading(true);
+    setError('');
+    if (form.password !== form.confirm_password) { setError('Passwords do not match'); return; }
+    if (form.password.length < 6) { setError('Password must be at least 6 characters'); return; }
+    setLoading(true);
     try {
-      const response = await fetch('http://localhost:8000/users/register', {
+      const res = await fetch('http://localhost:8000/users/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        // UPDATED: Sending the exact keys your backend User model expects
-        body: JSON.stringify({
-          first_name: formData.firstName,
-          last_name: formData.lastName,
-          email: formData.email,
-          password: formData.password
-        }),
+        body: JSON.stringify({ first_name: form.first_name, last_name: form.last_name, email: form.email, password: form.password, role: 'customer' }),
       });
-
-      if (response.ok) {
-        addToast("Registration successful! Welcome to Ransara Fresh.", "success");
-        navigate('/login');
+      if (res.ok) {
+        setSuccess(true);
+        setTimeout(() => navigate('/login'), 2500);
       } else {
-        const errorData = await response.json();
-        addToast(errorData.detail || "Registration failed. Please try again.", "error");
+        const err = await res.json();
+        setError(err.detail || 'Registration failed');
       }
-    } catch (error) {
-      console.error("Registration error:", error);
-      addToast("A network error occurred. Please try again later.", "error");
-    } finally {
-      setIsLoading(false);
-    }
+    } catch { setError('Network error. Please try again.'); }
+    finally { setLoading(false); }
   };
 
+  if (success) return (
+    <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '80vh' }}>
+      <div style={{ textAlign: 'center', backgroundColor: 'white', padding: '50px', borderRadius: '16px', boxShadow: '0 4px 30px rgba(0,0,0,0.08)' }}>
+        <CheckCircle size={60} color="var(--color-primary)" style={{ marginBottom: '20px' }} />
+        <h2 style={{ fontSize: '22px', fontWeight: '700', color: 'var(--text-main)', marginBottom: '8px' }}>Account Created!</h2>
+        <p style={{ color: 'var(--text-muted)' }}>Redirecting you to login...</p>
+      </div>
+    </div>
+  );
+
+  const inputStyle = { width: '100%', padding: '12px 14px 12px 40px', border: '1.5px solid var(--border-light)', borderRadius: '8px', fontSize: '14px', color: 'var(--text-main)', outline: 'none', backgroundColor: '#fafafa', fontFamily: 'inherit', boxSizing: 'border-box' };
+
   return (
-    <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '70vh' }}>
-      <div className="card" style={{ width: '100%', maxWidth: '450px', padding: '40px' }}>
-        
-        <div style={{ textAlign: 'center', marginBottom: '30px' }}>
-          <div style={{ 
-            backgroundColor: 'rgba(16, 185, 129, 0.1)', 
-            width: '60px', height: '60px', 
-            borderRadius: '50%', 
-            display: 'flex', justifyContent: 'center', alignItems: 'center', 
-            margin: '0 auto 15px auto',
-            color: 'var(--color-primary)'
-          }}>
-            <UserPlus size={30} />
-          </div>
-          <h2 className="text-title" style={{ fontSize: '28px', marginBottom: '8px' }}>Create an Account</h2>
-          <p className="text-subtitle">Join us to start shopping for fresh groceries.</p>
-        </div>
-
-        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-          
-          {/* UPDATED: Side-by-side First Name and Last Name inputs */}
-          <div style={{ display: 'flex', gap: '15px' }}>
-            <div style={{ position: 'relative', flex: 1 }}>
-              <User size={18} color="var(--text-light)" style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)' }} />
-              <input 
-                type="text" 
-                name="firstName" 
-                placeholder="First Name" 
-                required 
-                value={formData.firstName} 
-                onChange={handleChange} 
-                className="input-field" 
-                style={{ paddingLeft: '42px' }} 
-              />
+    <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '80vh', padding: '30px 20px' }}>
+      <div style={{ width: '100%', maxWidth: '440px' }}>
+        <div style={{ backgroundColor: 'white', borderRadius: '16px', boxShadow: '0 4px 30px rgba(0,0,0,0.08)', padding: '40px' }}>
+          <div style={{ textAlign: 'center', marginBottom: '28px' }}>
+            <div style={{ width: '52px', height: '52px', backgroundColor: 'var(--color-primary)', borderRadius: '14px', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 14px' }}>
+              <UserPlus size={26} color="white" />
             </div>
-            
-            <div style={{ position: 'relative', flex: 1 }}>
-              <User size={18} color="var(--text-light)" style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)' }} />
-              <input 
-                type="text" 
-                name="lastName" 
-                placeholder="Last Name" 
-                required 
-                value={formData.lastName} 
-                onChange={handleChange} 
-                className="input-field" 
-                style={{ paddingLeft: '42px' }} 
-              />
+            <h1 style={{ fontSize: '22px', fontWeight: '700', color: 'var(--text-main)', marginBottom: '6px' }}>Create Account</h1>
+            <p style={{ color: 'var(--text-muted)', fontSize: '14px' }}>Join Ransara Fresh today</p>
+          </div>
+
+          {error && (
+            <div style={{ backgroundColor: '#fef2f2', border: '1px solid #fecaca', color: '#dc2626', padding: '12px', borderRadius: '8px', fontSize: '13px', marginBottom: '16px' }}>
+              {error}
             </div>
-          </div>
+          )}
 
-          <div style={{ position: 'relative' }}>
-            <Mail size={18} color="var(--text-light)" style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)' }} />
-            <input 
-              type="email" 
-              name="email" 
-              placeholder="Email Address" 
-              required 
-              value={formData.email} 
-              onChange={handleChange} 
-              className="input-field" 
-              style={{ paddingLeft: '42px' }} 
-            />
-          </div>
+          <form onSubmit={submit} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+              {[['first_name', 'First Name'], ['last_name', 'Last Name']].map(([name, label]) => (
+                <div key={name} style={{ position: 'relative' }}>
+                  <User size={15} color="var(--text-light)" style={{ position: 'absolute', left: '13px', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }} />
+                  <input style={inputStyle} name={name} placeholder={label} value={form[name]} onChange={handle} required />
+                </div>
+              ))}
+            </div>
 
-          <div style={{ position: 'relative' }}>
-            <Lock size={18} color="var(--text-light)" style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)' }} />
-            <input 
-              type="password" 
-              name="password" 
-              placeholder="Password" 
-              required 
-              value={formData.password} 
-              onChange={handleChange} 
-              className="input-field" 
-              style={{ paddingLeft: '42px' }} 
-            />
-          </div>
+            <div style={{ position: 'relative' }}>
+              <Mail size={15} color="var(--text-light)" style={{ position: 'absolute', left: '13px', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }} />
+              <input style={inputStyle} name="email" type="email" placeholder="Email address" value={form.email} onChange={handle} required />
+            </div>
 
-          <div style={{ position: 'relative' }}>
-            <Lock size={18} color="var(--text-light)" style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)' }} />
-            <input 
-              type="password" 
-              name="confirmPassword" 
-              placeholder="Confirm Password" 
-              required 
-              value={formData.confirmPassword} 
-              onChange={handleChange} 
-              className="input-field" 
-              style={{ paddingLeft: '42px' }} 
-            />
-          </div>
+            <div style={{ position: 'relative' }}>
+              <Lock size={15} color="var(--text-light)" style={{ position: 'absolute', left: '13px', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }} />
+              <input style={inputStyle} name="password" type="password" placeholder="Password (min. 6 characters)" value={form.password} onChange={handle} required />
+            </div>
 
-          <button 
-            type="submit" 
-            disabled={isLoading} 
-            className="btn btn-primary" 
-            style={{ padding: '14px', fontSize: '16px', marginTop: '10px', opacity: isLoading ? 0.7 : 1 }}
-          >
-            {isLoading ? 'Creating Account...' : 'Sign Up'} <ArrowRight size={18} />
-          </button>
-        </form>
+            <div style={{ position: 'relative' }}>
+              <Lock size={15} color="var(--text-light)" style={{ position: 'absolute', left: '13px', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }} />
+              <input style={inputStyle} name="confirm_password" type="password" placeholder="Confirm password" value={form.confirm_password} onChange={handle} required />
+            </div>
 
-        <div style={{ textAlign: 'center', marginTop: '25px', paddingTop: '20px', borderTop: '1px solid var(--border-light)' }}>
-          <p className="text-subtitle" style={{ fontSize: '14px' }}>
+            <button type="submit" disabled={loading} className="btn btn-primary" style={{ width: '100%', padding: '13px', fontSize: '15px', borderRadius: '8px', marginTop: '4px', opacity: loading ? 0.7 : 1 }}>
+              {loading ? 'Creating Account...' : 'Create Account'}
+            </button>
+          </form>
+
+          <p style={{ textAlign: 'center', marginTop: '20px', fontSize: '14px', color: 'var(--text-muted)' }}>
             Already have an account?{' '}
-            <Link to="/login" style={{ color: 'var(--color-primary)', fontWeight: '600', textDecoration: 'none' }}>
-              Log in here
-            </Link>
+            <Link to="/login" style={{ color: 'var(--color-primary)', fontWeight: '600', textDecoration: 'none' }}>Sign in</Link>
           </p>
         </div>
       </div>
     </div>
   );
 }
-
-export default Register;

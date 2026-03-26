@@ -1,43 +1,113 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { Package, Clock, CheckCircle, Truck, AlertCircle, ShoppingBag, Star } from 'lucide-react';
+
+const STATUS_STYLES = {
+  Delivered:  { bg: '#eefcf2', color: '#00a247', icon: CheckCircle },
+  Processing: { bg: '#eff6ff', color: '#3b82f6', icon: Clock },
+  Shipped:    { bg: '#faf5ff', color: '#a855f7', icon: Truck },
+  Pending:    { bg: '#fffbeb', color: '#f59e0b', icon: AlertCircle },
+  Cancelled:  { bg: '#fef2f2', color: '#ef4444', icon: AlertCircle },
+};
 
 function Orders() {
-  const [orders, setOrders] = useState([]);
   const navigate = useNavigate();
+  const [orders, setOrders] = useState([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const fetchOrders = async () => {
-      const token = localStorage.getItem('token');
-      if (!token) return navigate('/login');
-
-      const res = await fetch('http://localhost:8000/orders/', {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setOrders(data);
-      }
-    };
-    fetchOrders();
+    const token = localStorage.getItem('token');
+    if (!token) { navigate('/login'); return; }
+    fetch('http://localhost:8000/orders/my', { headers: { Authorization: `Bearer ${token}` } })
+      .then(r => r.ok ? r.json() : [])
+      .then(data => setOrders(data))
+      .catch(() => setOrders([]))
+      .finally(() => setLoading(false));
   }, [navigate]);
 
-  return (
-    <div style={{ padding: '20px', maxWidth: '800px', margin: '0 auto' }}>
-      <h2>My Orders</h2>
-      {orders.length === 0 ? (
-        <p>You haven't placed any orders yet.</p>
-      ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
-          {orders.map(order => (
-            <div key={order.id} style={{ border: '1px solid #ccc', padding: '15px', borderRadius: '8px' }}>
-              <h3>Order #{order.id}</h3>
-              <p><strong>Status:</strong> {order.current_status}</p>
-              <p><strong>Total:</strong> Rs. {order.total_amount.toFixed(2)}</p>
-              <p><strong>Date:</strong> {new Date(order.created_at).toLocaleString()}</p>
-            </div>
-          ))}
+  if (loading) {
+    return (
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', paddingTop: '100px', color: 'var(--text-muted)' }}>
+        <div style={{ textAlign: 'center' }}>
+          <div style={{ width: '40px', height: '40px', border: '3px solid var(--border-light)', borderTopColor: 'var(--color-primary)', borderRadius: '50%', animation: 'spin 0.8s linear infinite', margin: '0 auto 14px' }}></div>
+          <p>Loading orders...</p>
+          <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
         </div>
-      )}
+      </div>
+    );
+  }
+
+  if (orders.length === 0) {
+    return (
+      <div style={{ textAlign: 'center', paddingTop: '100px' }}>
+        <ShoppingBag size={60} style={{ color: 'var(--text-light)', marginBottom: '20px' }} />
+        <h2 style={{ fontSize: '24px', fontWeight: '700', color: 'var(--text-main)', marginBottom: '10px' }}>No orders yet</h2>
+        <p style={{ color: 'var(--text-muted)', marginBottom: '24px' }}>Start shopping to place your first order!</p>
+        <button onClick={() => navigate('/')} className="btn btn-primary" style={{ padding: '12px 28px' }}>Shop Now</button>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ padding: '30px 0 60px' }}>
+      <div style={{ marginBottom: '28px' }}>
+        <h1 style={{ fontSize: '26px', fontWeight: '700', color: 'var(--text-main)', marginBottom: '6px' }}>My Orders</h1>
+        <p style={{ color: 'var(--text-muted)', fontSize: '14px' }}>{orders.length} order{orders.length !== 1 ? 's' : ''} placed</p>
+      </div>
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+        {orders.map(order => {
+          const st = STATUS_STYLES[order.status] || { bg: '#f3f4f6', color: '#6b7280', icon: Package };
+          const Icon = st.icon;
+          const date = order.created_at ? new Date(order.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '';
+          return (
+            <div key={order.id} className="card" style={{ padding: '24px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px', flexWrap: 'wrap', gap: '10px' }}>
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '6px' }}>
+                    <span style={{ fontWeight: '700', fontSize: '16px', color: 'var(--text-main)' }}>Order #{order.id}</span>
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', padding: '4px 10px', borderRadius: '20px', fontSize: '12px', fontWeight: '600', backgroundColor: st.bg, color: st.color }}>
+                      <Icon size={12} /> {order.status}
+                    </span>
+                  </div>
+                  <div style={{ fontSize: '13px', color: 'var(--text-light)' }}>{date} · {order.payment_method}</div>
+                </div>
+                <div style={{ textAlign: 'right' }}>
+                  <div style={{ fontWeight: '700', fontSize: '20px', color: 'var(--color-primary)' }}>${order.total?.toFixed(2)}</div>
+                </div>
+              </div>
+
+              {order.items && order.items.length > 0 && (
+                <div style={{ borderTop: '1px solid var(--border-light)', paddingTop: '16px' }}>
+                  <div style={{ fontSize: '12px', fontWeight: '600', color: 'var(--text-light)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '10px' }}>Items</div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    {order.items.map((item, i) => (
+                      <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '14px', padding: '4px 0' }}>
+                        <div>
+                          <span style={{ color: 'var(--text-main)' }}>{item.product_name || item.name} <span style={{ color: 'var(--text-muted)' }}>× {item.quantity}</span></span>
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+                          <span style={{ color: 'var(--text-muted)' }}>${(item.price * item.quantity).toFixed(2)}</span>
+                          {order.status === 'Delivered' && (
+                            <button 
+                              onClick={() => navigate('/feedback', { state: { product_id: item.product_id || item.id, product_name: item.product_name || item.name } })}
+                              style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', background: 'none', border: '1px solid var(--border-light)', padding: '4px 10px', borderRadius: '4px', fontSize: '12px', cursor: 'pointer', color: 'var(--text-main)', transition: 'background-color 0.2s' }}
+                              onMouseEnter={e => e.currentTarget.style.backgroundColor = 'var(--bg-muted)'}
+                              onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
+                            >
+                              <Star size={12} color="#f59e0b" /> Review
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }

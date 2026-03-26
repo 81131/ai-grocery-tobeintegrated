@@ -9,6 +9,17 @@ class UserCreate(BaseModel):
     password: str 
     role: Optional[str] = "customer"
 
+class UserProfileUpdate(BaseModel):
+    first_name: str
+    last_name: str
+    phone_number: str
+
+class UserAddressUpdate(BaseModel):
+    house_no_lane: str
+    street_name: str
+    city: str
+    postal_code: str
+
 # --- NEW: Driver Schemas ---
 class DriverCreate(BaseModel):
     email: EmailStr

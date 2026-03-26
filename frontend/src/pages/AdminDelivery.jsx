@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Truck, Plus, Star, X, UserMinus, CheckCircle, AlertCircle, Mail, Phone, Shield } from 'lucide-react';
+import { Truck, Plus, Star, X, UserMinus, CheckCircle, AlertCircle, Mail, Phone, Shield, Save } from 'lucide-react';
 
 function AdminDelivery() {
   const [config, setConfig] = useState({
@@ -181,8 +181,8 @@ function AdminDelivery() {
       </div>
 
         <div style={{ marginTop: '30px', paddingTop: '20px', borderTop: '1px solid #eee', textAlign: 'right' }}>
-          <button type="submit" style={{ padding: '12px 25px', backgroundColor: '#27ae60', color: 'white', border: 'none', borderRadius: '8px', fontSize: '16px', fontWeight: 'bold', cursor: 'pointer' }}>
-            💾 Save Settings
+          <button type="submit" style={{ padding: '12px 25px', backgroundColor: '#27ae60', color: 'white', border: 'none', borderRadius: '8px', fontSize: '16px', fontWeight: 'bold', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+            <Save size={18} /> Save Settings
           </button>
         </div>
 

@@ -14,7 +14,7 @@ class Cart(Base):
     id = Column(Integer, primary_key=True, index=True)
     
     # We enforce unique=True so a user can't accidentally create multiple active carts
-    user_id = Column(Integer, unique=True, nullable=False) 
+    user_id = Column(Integer, ForeignKey("users.user_id", ondelete="CASCADE"), unique=True, nullable=False)  
     
     # Tracking when the cart was last updated is useful for "abandoned cart" features
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
@@ -32,7 +32,7 @@ class CartItem(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     cart_id = Column(Integer, ForeignKey("carts.id"), nullable=False)
-    product_id = Column(Integer, nullable=False) # Will link to the inventory products table
+    product_id = Column(Integer, ForeignKey("products.id", ondelete="CASCADE"), nullable=False) # Linked to inventory products table
     
     quantity = Column(Integer, nullable=False, default=1)
 

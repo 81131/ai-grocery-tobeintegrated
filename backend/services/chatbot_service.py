@@ -9,8 +9,7 @@ load_dotenv()
 
 # 1. Load both keys safely
 api_keys = [
-    os.getenv("GEMINI_API_KEY_1"),
-    os.getenv("GEMINI_API_KEY_2")
+    os.getenv("GEMINI_API_KEY")
 ]
 
 # Filter out any empty keys (in case one is missing)
