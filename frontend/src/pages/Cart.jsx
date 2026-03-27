@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Minus, ShoppingCart, CreditCard, CheckCircle } from 'lucide-react';
+import { Plus, Minus, ShoppingCart, CreditCard, CheckCircle, AlertTriangle, Upload, Store, Truck } from 'lucide-react';
+import CheckoutMap from '../components/CheckoutMap';
 
 const inputStyle = {
   width: '100%',
@@ -12,12 +13,14 @@ const inputStyle = {
   color: 'var(--text-main)',
   outline: 'none',
   fontFamily: 'inherit',
+  boxSizing: 'border-box',
 };
 
 function Cart() {
   const [cartData, setCartData] = useState({ items: [], total: 0 });
   const [paymentMethod, setPaymentMethod] = useState('credit');
   const [isPlacing, setIsPlacing] = useState(false);
+  const [deliveryType, setDeliveryType] = useState('Home Delivery'); // NEW
 
   // Shipping form
   const [firstName, setFirstName]   = useState('');
@@ -25,13 +28,55 @@ function Cart() {
   const [email,     setEmail]       = useState('');
   const [phone,     setPhone]       = useState('');
   const [address,   setAddress]     = useState('');
-  const [city,      setCity]        = useState('New York');
-  const [zip,       setZip]         = useState('10001');
+  const [city,      setCity]        = useState('Colombo');
+  const [zip,       setZip]         = useState('00100');
 
   // Card fields
   const [cardNumber, setCardNumber] = useState('');
   const [expiry,     setExpiry]     = useState('');
   const [cvv,        setCvv]        = useState('');
+
+  // Map fields
+  const [deliveryLat, setDeliveryLat] = useState(null);
+  const [deliveryLng, setDeliveryLng] = useState(null);
+  const [mapAddress, setMapAddress]   = useState('');
+  const [distanceKm, setDistanceKm]   = useState(0);
+
+  // Payment slip
+  const [paymentSlip, setPaymentSlip] = useState(null);
+
+  // Full delivery config from backend (needed to compute distance-based fees)
+  const [deliveryConfig, setDeliveryConfig] = useState(null);
+  // shippingFee = computed fee applied to this order
+  // configuredFee = base fee shown on the Home Delivery card (before distance)
+  const [shippingFee, setShippingFee] = useState(0);
+  const [configuredFee, setConfiguredFee] = useState(400);
+
+  // Pure fee calculator — works with any distanceKm value
+  const computeFee = (km, cfg) => {
+    if (!cfg) return 400;
+    switch (cfg.active_method) {
+      case 'fixed':
+        return cfg.fixed_fee ?? 400;
+      case 'weight':
+        // weight-based: base fee (weight is unknown at this point, use base only)
+        return cfg.base_weight_fee ?? 400;
+      case 'distance': {
+        // base fee covers base_distance_km, extra per km beyond that
+        const base = cfg.base_distance_fee ?? 200;
+        const extra = Math.max(0, km - (cfg.base_distance_km ?? 1)) * (cfg.extra_distance_fee_per_km ?? 150);
+        return base + extra;
+      }
+      case 'combined': {
+        const baseFee = cfg.base_weight_fee ?? 400;
+        const distBase = cfg.base_distance_fee ?? 200;
+        const extra = Math.max(0, km - (cfg.base_distance_km ?? 1)) * (cfg.extra_distance_fee_per_km ?? 150);
+        return baseFee + distBase + extra;
+      }
+      default:
+        return cfg.fixed_fee ?? 400;
+    }
+  };
 
   const navigate = useNavigate();
 
@@ -44,7 +89,43 @@ function Cart() {
     } catch (e) { console.error(e); }
   };
 
+  // Fetch admin delivery config once (on mount) and whenever tab is refocused
+  const fetchShippingFee = async () => {
+    try {
+      const res = await fetch('http://localhost:8000/orders/delivery-config');
+      if (res.ok) {
+        const cfg = await res.json();
+        setDeliveryConfig(cfg);
+        // configuredFee = base fee for Home Delivery card label (distance=0)
+        setConfiguredFee(computeFee(0, cfg));
+      }
+    } catch (e) {
+      // keep defaults
+    }
+  };
+
+  // Recompute shippingFee whenever distanceKm or config or deliveryType changes
+  useEffect(() => {
+    if (deliveryType === 'Store Pickup') {
+      setShippingFee(0);
+      return;
+    }
+    const fee = computeFee(distanceKm, deliveryConfig);
+    setShippingFee(fee);
+  }, [distanceKm, deliveryConfig, deliveryType]);
+
   useEffect(() => { fetchCart(); }, [navigate]);
+  // Re-fetch configured fee on mount and every 30s / tab visibility
+  useEffect(() => {
+    fetchShippingFee();
+    const interval = setInterval(fetchShippingFee, 30000);
+    const onVisible = () => { if (document.visibilityState === 'visible') fetchShippingFee(); };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', onVisible);
+    };
+  }, []);  // only on mount — delivery type effect above handles toggling
 
   const updateQuantity = async (batchId, newQty) => {
     const token = localStorage.getItem('token');
@@ -56,20 +137,31 @@ function Cart() {
     fetchCart();
   };
 
-  const tax      = +(cartData.total * 0.08).toFixed(2);
-  const shipping = cartData.total > 0 ? 2.37 : 0;
-  const grandTotal = +(cartData.total + tax + shipping).toFixed(2);
+  // No tax — only shipping
+  const grandTotal = +(cartData.total + shippingFee).toFixed(2);
 
   const handlePlaceOrder = async (e) => {
     e.preventDefault();
+    if (deliveryType === 'Home Delivery' && (!deliveryLat || !deliveryLng)) {
+      alert('Please pin your exact delivery location on the map.');
+      return;
+    }
+    if (paymentMethod === 'slip' && !paymentSlip) {
+      alert('Please upload your payment slip to proceed.');
+      return;
+    }
     setIsPlacing(true);
     const token = localStorage.getItem('token');
     const formData = new FormData();
     formData.append('customer_name', `${firstName} ${lastName}`.trim() || 'Customer');
-    formData.append('delivery_type', 'Home Delivery');
-    formData.append('delivery_address', `${address}, ${city} ${zip}`);
-    formData.append('distance_km', 0);
-    formData.append('payment_method', paymentMethod === 'credit' ? 'Card' : paymentMethod === 'paypal' ? 'PayPal' : 'Cash on Delivery');
+    formData.append('delivery_type', deliveryType);
+    formData.append('delivery_address', deliveryType === 'Store Pickup' ? 'Store Pickup' : (mapAddress || `${address}, ${city} ${zip}`));
+    formData.append('delivery_lat', deliveryLat ?? 0);
+    formData.append('delivery_lng', deliveryLng ?? 0);
+    formData.append('distance_km', distanceKm);
+    const pmLabel = paymentMethod === 'credit' ? 'Card' : paymentMethod === 'slip' ? 'Payment Slip' : 'Cash on Delivery';
+    formData.append('payment_method', pmLabel);
+    if (paymentSlip) formData.append('payment_slip', paymentSlip);
 
     try {
       const res = await fetch('http://localhost:8000/orders/checkout', {
@@ -122,10 +214,15 @@ function Cart() {
                   padding: '12px 0', borderBottom: '1px solid var(--border-light)'
                 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                    <img src={item.image} alt={item.name} style={{ width: '44px', height: '44px', objectFit: 'cover', borderRadius: '6px', backgroundColor: '#f3f4f6' }} />
+                    <img
+                      src={item.image || item.image_url || ''}
+                      alt={item.name}
+                      onError={e => { e.target.onerror = null; e.target.src = 'data:image/svg+xml;charset=utf-8,<svg xmlns="http://www.w3.org/2000/svg" width="44" height="44" viewBox="0 0 44 44"><rect width="44" height="44" fill="%23f3f4f6"/><text x="22" y="28" text-anchor="middle" font-size="20" fill="%23d1d5db">📦</text></svg>'; }}
+                      style={{ width: '44px', height: '44px', objectFit: 'cover', borderRadius: '6px', backgroundColor: '#f3f4f6' }}
+                    />
                     <div>
                       <div style={{ fontWeight: '500', fontSize: '14px', color: 'var(--text-main)' }}>{item.name}</div>
-                      <div style={{ fontSize: '13px', color: 'var(--text-muted)' }}>${item.price.toFixed(2)} each</div>
+                      <div style={{ fontSize: '13px', color: 'var(--text-muted)' }}>Rs. {item.price.toFixed(2)} each</div>
                     </div>
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
@@ -138,56 +235,111 @@ function Cart() {
                       style={{ width: '28px', height: '28px', borderRadius: '6px', border: '1px solid var(--border-light)', background: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
                       <Plus size={13} />
                     </button>
-                    <span style={{ fontWeight: '600', color: 'var(--color-primary)', minWidth: '60px', textAlign: 'right', fontSize: '14px' }}>
-                      ${item.subtotal.toFixed(2)}
+                    <span style={{ fontWeight: '600', color: 'var(--color-primary)', minWidth: '70px', textAlign: 'right', fontSize: '14px' }}>
+                      Rs. {item.subtotal.toFixed(2)}
                     </span>
                   </div>
                 </div>
               ))}
             </div>
 
-            {/* Shipping Address */}
+            {/* Delivery Type Selection */}
             <div className="card" style={{ padding: '24px' }}>
-              <h3 className="text-title" style={{ fontSize: '15px', marginBottom: '18px' }}>Shipping Address</h3>
-
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
-                <div>
-                  <label style={{ display: 'block', fontSize: '13px', fontWeight: '500', color: 'var(--text-main)', marginBottom: '6px' }}>First Name</label>
-                  <input style={inputStyle} placeholder="John" value={firstName} onChange={e => setFirstName(e.target.value)} />
-                </div>
-                <div>
-                  <label style={{ display: 'block', fontSize: '13px', fontWeight: '500', color: 'var(--text-main)', marginBottom: '6px' }}>Last Name</label>
-                  <input style={inputStyle} placeholder="Doe" value={lastName} onChange={e => setLastName(e.target.value)} />
-                </div>
-              </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', marginTop: '14px' }}>
-                <div>
-                  <label style={{ display: 'block', fontSize: '13px', fontWeight: '500', color: 'var(--text-main)', marginBottom: '6px' }}>Email</label>
-                  <input style={inputStyle} type="email" placeholder="john@example.com" value={email} onChange={e => setEmail(e.target.value)} />
-                </div>
-                <div>
-                  <label style={{ display: 'block', fontSize: '13px', fontWeight: '500', color: 'var(--text-main)', marginBottom: '6px' }}>Phone</label>
-                  <input style={inputStyle} placeholder="+1 234 567 890" value={phone} onChange={e => setPhone(e.target.value)} />
-                </div>
-              </div>
-
-              <div style={{ marginTop: '14px' }}>
-                <label style={{ display: 'block', fontSize: '13px', fontWeight: '500', color: 'var(--text-main)', marginBottom: '6px' }}>Address</label>
-                <input style={inputStyle} placeholder="123 Main Street, Apt 4B" value={address} onChange={e => setAddress(e.target.value)} />
-              </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', marginTop: '14px' }}>
-                <div>
-                  <label style={{ display: 'block', fontSize: '13px', fontWeight: '500', color: 'var(--text-main)', marginBottom: '6px' }}>City</label>
-                  <input style={inputStyle} placeholder="New York" value={city} onChange={e => setCity(e.target.value)} />
-                </div>
-                <div>
-                  <label style={{ display: 'block', fontSize: '13px', fontWeight: '500', color: 'var(--text-main)', marginBottom: '6px' }}>Zip Code</label>
-                  <input style={inputStyle} placeholder="10001" value={zip} onChange={e => setZip(e.target.value)} />
-                </div>
+              <h3 className="text-title" style={{ fontSize: '15px', marginBottom: '16px' }}>Delivery Method</h3>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                {[
+                  { id: 'Home Delivery', label: 'Home Delivery', sub: 'Delivered to your door', icon: <Truck size={20} /> },
+                  { id: 'Store Pickup', label: 'Store Pickup', sub: 'Free — collect at store', icon: <Store size={20} /> },
+                ].map(opt => (
+                  <button
+                    key={opt.id}
+                    type="button"
+                    onClick={() => setDeliveryType(opt.id)}
+                    style={{
+                      padding: '16px', borderRadius: '10px', textAlign: 'left', cursor: 'pointer',
+                      border: `2px solid ${deliveryType === opt.id ? 'var(--color-primary)' : 'var(--border-light)'}`,
+                      background: deliveryType === opt.id ? '#f0fdf4' : 'white',
+                      display: 'flex', flexDirection: 'column', gap: '6px', transition: 'all 0.15s',
+                    }}
+                  >
+                    <div style={{ color: deliveryType === opt.id ? 'var(--color-primary)' : 'var(--text-muted)' }}>{opt.icon}</div>
+                    <div style={{ fontWeight: '600', fontSize: '14px', color: 'var(--text-main)' }}>{opt.label}</div>
+                    <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{opt.sub}</div>
+                    {opt.id === 'Home Delivery' && (
+                      <div style={{ fontSize: '12px', fontWeight: '600', color: 'var(--color-primary)' }}>Rs. {configuredFee.toFixed(2)}</div>
+                    )}
+                    {opt.id === 'Store Pickup' && (
+                      <div style={{ fontSize: '12px', fontWeight: '600', color: '#16a34a' }}>Rs. 0.00</div>
+                    )}
+                  </button>
+                ))}
               </div>
             </div>
+
+            {/* Shipping Address — only for Home Delivery */}
+            {deliveryType === 'Home Delivery' && (
+              <>
+                <div className="card" style={{ padding: '24px' }}>
+                  <h3 className="text-title" style={{ fontSize: '15px', marginBottom: '18px' }}>Delivery Address</h3>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '13px', fontWeight: '500', color: 'var(--text-main)', marginBottom: '6px' }}>First Name</label>
+                      <input style={inputStyle} placeholder="John" value={firstName} onChange={e => setFirstName(e.target.value)} />
+                    </div>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '13px', fontWeight: '500', color: 'var(--text-main)', marginBottom: '6px' }}>Last Name</label>
+                      <input style={inputStyle} placeholder="Doe" value={lastName} onChange={e => setLastName(e.target.value)} />
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', marginTop: '14px' }}>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '13px', fontWeight: '500', color: 'var(--text-main)', marginBottom: '6px' }}>Email</label>
+                      <input style={inputStyle} type="email" placeholder="john@example.com" value={email} onChange={e => setEmail(e.target.value)} />
+                    </div>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '13px', fontWeight: '500', color: 'var(--text-main)', marginBottom: '6px' }}>Phone</label>
+                      <input style={inputStyle} placeholder="+94 71 234 5678" value={phone} onChange={e => setPhone(e.target.value)} />
+                    </div>
+                  </div>
+
+                  <div style={{ marginTop: '14px' }}>
+                    <label style={{ display: 'block', fontSize: '13px', fontWeight: '500', color: 'var(--text-main)', marginBottom: '6px' }}>Address</label>
+                    <input style={inputStyle} placeholder="123 Main Street, Apt 4B" value={address} onChange={e => setAddress(e.target.value)} />
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', marginTop: '14px' }}>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '13px', fontWeight: '500', color: 'var(--text-main)', marginBottom: '6px' }}>City</label>
+                      <input style={inputStyle} placeholder="Colombo" value={city} onChange={e => setCity(e.target.value)} />
+                    </div>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '13px', fontWeight: '500', color: 'var(--text-main)', marginBottom: '6px' }}>Postal Code</label>
+                      <input style={inputStyle} placeholder="00100" value={zip} onChange={e => setZip(e.target.value)} />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Delivery Map Selection */}
+                <div className="card" style={{ padding: '24px' }}>
+                  <h3 className="text-title" style={{ fontSize: '15px', marginBottom: '8px' }}>Pin Your Location</h3>
+                  <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: '16px' }}>
+                    We need your exact coordinates to deliver your order seamlessly.
+                  </p>
+                  <div style={{ width: '100%', height: '300px', borderRadius: '8px', overflow: 'hidden', border: '1px solid var(--border-light)' }}>
+                    <CheckoutMap
+                      onLocationSelect={(addr, lat, lng) => {
+                        setMapAddress(addr);
+                        setDeliveryLat(lat);
+                        setDeliveryLng(lng);
+                      }}
+                      onDistanceCalculated={setDistanceKm}
+                    />
+                  </div>
+                </div>
+              </>
+            )}
 
             {/* Payment Method */}
             <div className="card" style={{ padding: '24px' }}>
@@ -195,11 +347,10 @@ function Cart() {
                 <CreditCard size={17} /> Payment Method
               </h3>
 
-              {/* Method Options */}
               {[
-                { id: 'credit',   label: 'Credit/Debit Card',  rightIcon: <CreditCard size={16} color="var(--text-light)" /> },
-                { id: 'paypal',   label: 'PayPal',             rightIcon: null },
-                { id: 'cod',      label: 'Cash on Delivery',   rightIcon: null },
+                { id: 'credit', label: 'Credit / Debit Card',   icon: <CreditCard size={16} color="var(--text-light)" /> },
+                { id: 'slip',   label: 'Upload Payment Slip',    icon: <Upload size={16} color="var(--text-light)" /> },
+                { id: 'cod',    label: 'Cash on Delivery',       icon: null },
               ].map(opt => (
                 <label key={opt.id} style={{
                   display: 'flex', alignItems: 'center', justifyContent: 'space-between',
@@ -216,22 +367,16 @@ function Cart() {
                     />
                     <span style={{ fontSize: '14px', fontWeight: '500', color: 'var(--text-main)' }}>{opt.label}</span>
                   </div>
-                  {opt.rightIcon}
+                  {opt.icon}
                 </label>
               ))}
 
-              {/* Card Details — visible only when credit selected */}
+              {/* Card Details */}
               {paymentMethod === 'credit' && (
                 <div style={{ marginTop: '4px', padding: '18px', backgroundColor: '#f9fafb', borderRadius: '8px', border: '1px solid var(--border-light)' }}>
                   <div>
                     <label style={{ display: 'block', fontSize: '13px', fontWeight: '500', color: 'var(--text-main)', marginBottom: '6px' }}>Card Number</label>
-                    <input
-                      style={inputStyle}
-                      placeholder="1234 5678 9012 3456"
-                      value={cardNumber}
-                      onChange={e => setCardNumber(e.target.value)}
-                      maxLength={19}
-                    />
+                    <input style={inputStyle} placeholder="1234 5678 9012 3456" value={cardNumber} onChange={e => setCardNumber(e.target.value)} maxLength={19} />
                   </div>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', marginTop: '14px' }}>
                     <div>
@@ -242,6 +387,44 @@ function Cart() {
                       <label style={{ display: 'block', fontSize: '13px', fontWeight: '500', color: 'var(--text-main)', marginBottom: '6px' }}>CVV</label>
                       <input style={inputStyle} placeholder="123" value={cvv} onChange={e => setCvv(e.target.value)} maxLength={4} type="password" />
                     </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Payment Slip Upload */}
+              {paymentMethod === 'slip' && (
+                <div style={{ marginTop: '4px', padding: '18px', backgroundColor: '#f9fafb', borderRadius: '8px', border: '1px solid var(--border-light)' }}>
+                  <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: '12px', lineHeight: '1.5' }}>
+                    Transfer the total amount to our bank account, then upload your payment slip here.
+                    Our team will verify and confirm your order within 24 hours.
+                  </p>
+                  <div
+                    onClick={() => document.getElementById('slip-input').click()}
+                    style={{
+                      border: `2px dashed ${paymentSlip ? 'var(--color-primary)' : 'var(--border-light)'}`,
+                      borderRadius: '10px', padding: '28px', textAlign: 'center', cursor: 'pointer',
+                      backgroundColor: paymentSlip ? '#f0fdf4' : 'white', transition: 'all 0.2s',
+                    }}
+                  >
+                    <Upload size={28} color={paymentSlip ? 'var(--color-primary)' : 'var(--text-light)'} style={{ margin: '0 auto 10px' }} />
+                    {paymentSlip ? (
+                      <div>
+                        <div style={{ fontWeight: '600', color: 'var(--color-primary)', fontSize: '14px' }}>✓ {paymentSlip.name}</div>
+                        <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px' }}>Click to change file</div>
+                      </div>
+                    ) : (
+                      <div>
+                        <div style={{ fontWeight: '500', color: 'var(--text-main)', fontSize: '14px' }}>Click to upload your payment slip</div>
+                        <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px' }}>PDF, PNG, JPG, JPEG accepted</div>
+                      </div>
+                    )}
+                    <input
+                      id="slip-input"
+                      type="file"
+                      accept=".pdf,.png,.jpg,.jpeg"
+                      style={{ display: 'none' }}
+                      onChange={e => setPaymentSlip(e.target.files[0] || null)}
+                    />
                   </div>
                 </div>
               )}
@@ -256,21 +439,39 @@ function Cart() {
             <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', marginBottom: '20px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '14px', color: 'var(--text-muted)' }}>
                 <span>Subtotal</span>
-                <span style={{ color: 'var(--text-main)', fontWeight: '500' }}>${cartData.total.toFixed(2)}</span>
+                <span style={{ color: 'var(--text-main)', fontWeight: '500' }}>Rs. {cartData.total.toFixed(2)}</span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '14px', color: 'var(--text-muted)' }}>
-                <span>Tax</span>
-                <span style={{ color: 'var(--text-main)', fontWeight: '500' }}>${tax.toFixed(2)}</span>
+                <span>Shipping Fee</span>
+                <span style={{ color: shippingFee === 0 ? '#16a34a' : 'var(--text-main)', fontWeight: '500' }}>
+                  {deliveryType === 'Store Pickup' ? 'Free' : `Rs. ${shippingFee.toFixed(2)}`}
+                </span>
               </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '14px', color: 'var(--text-muted)' }}>
-                <span>Shipping</span>
-                <span style={{ color: 'var(--text-main)', fontWeight: '500' }}>${shipping.toFixed(2)}</span>
-              </div>
+              {deliveryType === 'Home Delivery' && distanceKm > 0 && (
+                <div style={{ fontSize: '12px', color: 'var(--text-light)', fontStyle: 'italic', textAlign: 'right' }}>
+                  📍 {distanceKm.toFixed(1)} km from store
+                </div>
+              )}
+              {deliveryType === 'Store Pickup' && (
+                <div style={{ fontSize: '12px', color: '#16a34a', fontStyle: 'italic' }}>
+                  ✓ Store pickup — no delivery fee
+                </div>
+              )}
             </div>
 
             <div style={{ borderTop: '1px solid var(--border-light)', paddingTop: '16px', marginBottom: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <span style={{ fontWeight: '700', fontSize: '16px', color: 'var(--text-main)' }}>Total</span>
-              <span style={{ fontWeight: '700', fontSize: '20px', color: 'var(--color-primary)' }}>${grandTotal.toFixed(2)}</span>
+              <span style={{ fontWeight: '700', fontSize: '20px', color: 'var(--color-primary)' }}>Rs. {grandTotal.toFixed(2)}</span>
+            </div>
+
+            <div style={{ padding: '12px', backgroundColor: '#fff7ed', borderRadius: '8px', border: '1px solid #fed7aa', marginBottom: '20px', display: 'flex', gap: '10px', alignItems: 'flex-start' }}>
+              <AlertTriangle size={18} color="#ea580c" style={{ flexShrink: 0, marginTop: '2px' }} />
+              <div style={{ fontSize: '13px', color: '#9a3412', lineHeight: '1.4' }}>
+                {deliveryType === 'Home Delivery'
+                  ? <><strong>Notice:</strong> If you cannot receive the delivery at the pinned location or fail to provide the OTP to the driver, you will not be refunded.</>
+                  : <><strong>Store Pickup:</strong> Bring your order ID and a valid ID when collecting from our store.</>
+                }
+              </div>
             </div>
 
             <button

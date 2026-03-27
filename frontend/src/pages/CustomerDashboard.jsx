@@ -115,7 +115,7 @@ function CustomerDashboard() {
   const initials = profile ? `${profile.name?.charAt(0) || ''}`.toUpperCase() : 'U';
   const statsCards = [
     { label: 'Total Orders', value: stats?.total_orders ?? 0, icon: Package, color: '#3b82f6' },
-    { label: 'Total Spent', value: `$${(stats?.total_spent ?? 0).toFixed(2)}`, icon: DollarSign, color: 'var(--color-primary)' },
+    { label: 'Total Spent', value: `Rs. ${(stats?.total_spent ?? 0).toFixed(2)}`, icon: DollarSign, color: 'var(--color-primary)' },
   ];
 
   const quickLinks = [
@@ -200,7 +200,7 @@ function CustomerDashboard() {
                       <Icon size={10} /> {order.status}
                     </span>
                   </div>
-                  <span style={{ fontWeight: '700', color: 'var(--color-primary)' }}>${order.total?.toFixed(2)}</span>
+                  <span style={{ fontWeight: '700', color: 'var(--color-primary)' }}>Rs. {order.total?.toFixed(2)}</span>
                 </div>
               );
             })

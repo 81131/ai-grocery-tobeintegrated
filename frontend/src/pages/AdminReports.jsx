@@ -16,7 +16,7 @@ function BarChart({ data, maxVal }) {
         const pct = maxVal > 0 ? (d.revenue / maxVal) * 100 : 0;
         return (
           <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px', height: '100%', justifyContent: 'flex-end' }}>
-            <span style={{ fontSize: '11px', fontWeight: '600', color: 'var(--text-muted)' }}>${d.revenue > 0 ? (d.revenue >= 1000 ? (d.revenue/1000).toFixed(1)+'k' : d.revenue.toFixed(0)) : 0}</span>
+            <span style={{ fontSize: '11px', fontWeight: '600', color: 'var(--text-muted)' }}>Rs. {d.revenue > 0 ? (d.revenue >= 1000 ? (d.revenue/1000).toFixed(1)+'k' : d.revenue.toFixed(0)) : 0}</span>
             <div style={{ width: '100%', backgroundColor: 'var(--color-primary)', borderRadius: '6px 6px 0 0', height: `${Math.max(pct, 2)}%`, transition: 'height 0.6s ease', opacity: 0.85 + (0.15 * (i / data.length)) }}></div>
             <span style={{ fontSize: '11px', color: 'var(--text-light)' }}>{d.month}</span>
           </div>
@@ -104,7 +104,7 @@ export default function AdminReports() {
         <div className="card" style={{ padding: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div>
             <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: '6px' }}>Total Revenue</p>
-            <p style={{ fontSize: '28px', fontWeight: '700', color: 'var(--text-main)' }}>${data?.summary?.total_revenue?.toFixed(2) ?? '0.00'}</p>
+            <p style={{ fontSize: '28px', fontWeight: '700', color: 'var(--text-main)' }}>Rs. {data?.summary?.total_revenue?.toFixed(2) ?? '0.00'}</p>
           </div>
           <div style={{ width: '48px', height: '48px', borderRadius: '12px', backgroundColor: '#eefcf2', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <DollarSign size={24} color="var(--color-primary)" />
@@ -167,7 +167,7 @@ export default function AdminReports() {
                   <td style={{ padding: '14px 12px', fontSize: '13px', color: 'var(--text-light)' }}>#{i + 1}</td>
                   <td style={{ padding: '14px 12px', fontWeight: '500', color: 'var(--text-main)', fontSize: '14px' }}>{p.name}</td>
                   <td style={{ padding: '14px 12px', fontSize: '14px', color: 'var(--text-main)' }}>{p.qty_sold}</td>
-                  <td style={{ padding: '14px 12px', fontWeight: '600', color: 'var(--color-primary)', fontSize: '14px' }}>${p.revenue.toFixed(2)}</td>
+                  <td style={{ padding: '14px 12px', fontWeight: '600', color: 'var(--color-primary)', fontSize: '14px' }}>Rs. {p.revenue.toFixed(2)}</td>
                 </tr>
               ))}
             </tbody>

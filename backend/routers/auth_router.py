@@ -7,6 +7,10 @@ from schemas.user import UserCreate, UserProfileUpdate, UserAddressUpdate, Drive
 from passlib.context import CryptContext
 import jwt
 from datetime import datetime, timedelta, timezone
+from pydantic import BaseModel
+
+class RateDriverRequest(BaseModel):
+    rating: float
 
 router = APIRouter(prefix="/users", tags=["users"])
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -28,10 +32,18 @@ def get_all_drivers(db: Session = Depends(get_db)):
     users = db.query(User).filter(User.role == "driver", User.is_deleted == False).all()
     res = []
     for u in users:
+        dp = u.driver_profile
         res.append({
             "user_id": u.user_id, "first_name": u.first_name, 
             "last_name": u.last_name, "email": u.email, 
-            "phone_number": u.phone_number, "is_active": u.is_active
+            "phone_number": u.phone_number, "is_active": u.is_active,
+            "driver_profile": {
+                "license_number": dp.license_number,
+                "vehicle_type": dp.vehicle_type,
+                "is_available": dp.is_available,
+                "rating": dp.rating,
+                "total_deliveries": dp.total_deliveries
+            } if dp else None
         })
     return res
 
@@ -216,3 +228,14 @@ def register_driver(driver_data: DriverCreate, db: Session = Depends(get_db)):
     db.commit()
     
     return {"message": "Driver registered successfully"}
+
+@router.post("/drivers/{driver_id}/rate")
+def rate_driver(driver_id: int, request: RateDriverRequest, db: Session = Depends(get_db)):
+    driver = db.query(Driver).filter(Driver.user_id == driver_id).first()
+    if not driver:
+        raise HTTPException(status_code=404, detail="Driver profile not found")
+        
+    deliveries = max(1, driver.total_deliveries)
+    driver.rating = round(((driver.rating * deliveries) + request.rating) / (deliveries + 1), 1)
+    db.commit()
+    return {"message": "Driver rated successfully"}

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard, Users, Package, Truck, ShoppingCart,
-  MessageSquare, Bot, BarChart2, Settings, Search, Bell, ShoppingBag, Building2, Menu, X
+  MessageSquare, Bot, BarChart2, Settings, Search, Bell, ShoppingBag, Building2, Menu, X, BrainCircuit
 } from 'lucide-react';
 
 import AdminOrders from './AdminOrders';
@@ -15,6 +15,7 @@ import AdminDrivers from './AdminDrivers';
 import AdminChatbot from './AdminChatbot';
 import AdminFeedback from './AdminFeedback';
 import AdminReports from './AdminReports';
+import AdminForecasting from './AdminForecasting';
 
 function AdminPanel() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -68,6 +69,7 @@ function AdminPanel() {
     { id: 'drivers', label: 'Drivers', icon: Truck },
     { id: 'feedback', label: 'Feedback', icon: MessageSquare },
     { id: 'chatbot', label: 'Chatbot Support', icon: Bot },
+    { id: 'forecasting', label: 'AI Insights', icon: BrainCircuit },
     { id: 'reports', label: 'Reports & Analytics', icon: BarChart2 },
     { id: 'delivery', label: 'Settings', icon: Settings },
   ];
@@ -215,6 +217,7 @@ function AdminPanel() {
           {activeTab === 'users' && <AdminUsers />}
           {activeTab === 'drivers' && <AdminDrivers />}
           {activeTab === 'chatbot' && <AdminChatbot />}
+          {activeTab === 'forecasting' && <AdminForecasting />}
           {activeTab === 'feedback' && <AdminFeedback />}
           {activeTab === 'reports' && <AdminReports />}
         </main>

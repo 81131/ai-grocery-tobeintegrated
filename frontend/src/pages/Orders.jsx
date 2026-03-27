@@ -25,6 +25,23 @@ function Orders() {
       .finally(() => setLoading(false));
   }, [navigate]);
 
+  const rateDriver = async (driverId, rating) => {
+    const token = localStorage.getItem('token');
+    try {
+      const res = await fetch(`http://localhost:8000/users/drivers/${driverId}/rate`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({ rating })
+      });
+      if (res.ok) alert("Thank you for rating the driver!");
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
   if (loading) {
     return (
       <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', paddingTop: '100px', color: 'var(--text-muted)' }}>
@@ -73,9 +90,16 @@ function Orders() {
                   <div style={{ fontSize: '13px', color: 'var(--text-light)' }}>{date} · {order.payment_method}</div>
                 </div>
                 <div style={{ textAlign: 'right' }}>
-                  <div style={{ fontWeight: '700', fontSize: '20px', color: 'var(--color-primary)' }}>${order.total?.toFixed(2)}</div>
+                  <div style={{ fontWeight: '700', fontSize: '20px', color: 'var(--color-primary)' }}>Rs. {order.total?.toFixed(2)}</div>
                 </div>
               </div>
+
+              {order.otp_code && order.status !== 'Delivered' && order.status !== 'Cancelled' && (
+                <div style={{ marginBottom: '16px', display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '6px 14px', backgroundColor: '#f0fdf4', borderRadius: '6px', border: '1px solid #bbf7d0' }}>
+                  <span style={{ fontSize: '13px', fontWeight: '600', color: '#166534' }}>Drop-off OTP verification code:</span>
+                  <span style={{ fontSize: '20px', fontWeight: '800', letterSpacing: '2px', color: '#15803d' }}>{order.otp_code}</span>
+                </div>
+              )}
 
               {order.items && order.items.length > 0 && (
                 <div style={{ borderTop: '1px solid var(--border-light)', paddingTop: '16px' }}>
@@ -87,7 +111,7 @@ function Orders() {
                           <span style={{ color: 'var(--text-main)' }}>{item.product_name || item.name} <span style={{ color: 'var(--text-muted)' }}>× {item.quantity}</span></span>
                         </div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
-                          <span style={{ color: 'var(--text-muted)' }}>${(item.price * item.quantity).toFixed(2)}</span>
+                          <span style={{ color: 'var(--text-muted)' }}>Rs. {(item.price * item.quantity).toFixed(2)}</span>
                           {order.status === 'Delivered' && (
                             <button 
                               onClick={() => navigate('/feedback', { state: { product_id: item.product_id || item.id, product_name: item.product_name || item.name } })}
@@ -100,6 +124,29 @@ function Orders() {
                           )}
                         </div>
                       </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {order.status === 'Delivered' && order.driver_id && (
+                <div style={{ marginTop: '16px', borderTop: '1px dashed var(--border-light)', paddingTop: '16px', display: 'flex', alignItems: 'center' }}>
+                  <span style={{ fontSize: '13px', fontWeight: '600', color: 'var(--text-main)', marginRight: '10px' }}>Rate your delivery driver:</span>
+                  <div style={{ display: 'flex', gap: '6px' }}>
+                    {[1, 2, 3, 4, 5].map(star => (
+                      <Star key={star} size={20} color="#d1d5db" 
+                        style={{ cursor: 'pointer', transition: 'color 0.2s', fill: '#d1d5db' }}
+                        onMouseEnter={(e) => { e.currentTarget.style.color = '#f59e0b'; e.currentTarget.style.fill = '#f59e0b'; }}
+                        onMouseLeave={(e) => { e.currentTarget.style.color = '#d1d5db'; e.currentTarget.style.fill = '#d1d5db'; }}
+                        onClick={() => {
+                           rateDriver(order.driver_id, star);
+                           // optimistic color lock mock
+                           e.currentTarget.parentNode.childNodes.forEach((n, i) => {
+                               n.style.fill = i < star ? '#f59e0b' : '#d1d5db';
+                               n.style.color = i < star ? '#f59e0b' : '#d1d5db';
+                           });
+                        }}
+                      />
                     ))}
                   </div>
                 </div>

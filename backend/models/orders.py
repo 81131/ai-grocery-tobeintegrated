@@ -44,10 +44,13 @@ class Order(Base):
     otp_code = Column(String(6), nullable=True)  
     driver_id = Column(Integer, ForeignKey("users.user_id"), nullable=True) 
     payment_method = Column(String, default="Bank Transfer")
-    payment_slip_url = Column(String, nullable=True)
+    payment_slip_url = Column(String, nullable=True)         # stores saved file path
+    payment_slip_path = Column(String, nullable=True)        # alias kept for router compat
+    payment_slip_status = Column(String, nullable=True)      # pending_review | approved | rejected
     
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
-
+    
+    driver = relationship("User", foreign_keys=[driver_id])
     items = relationship("OrderItem", back_populates="order", cascade="all, delete-orphan")
     status_history = relationship("OrderStatusHistory", back_populates="order", cascade="all, delete-orphan")
     delivery_info = relationship("OrderDelivery", back_populates="order", uselist=False, cascade="all, delete-orphan")
@@ -72,6 +75,8 @@ class OrderDelivery(Base):
     driver_name = Column(String) 
     customer_name = Column(String, nullable=False)
     delivery_address = Column(String, nullable=False)
+    delivery_lat = Column(Float, nullable=True)
+    delivery_lng = Column(Float, nullable=True)
     
     order = relationship("Order", back_populates="delivery_info")
 

@@ -1,5 +1,4 @@
 
-
 services:
   db:
     image: postgres:15-alpine
@@ -20,6 +19,7 @@ services:
     command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
     volumes:
       - ./backend:/app
+      - ./pictures:/app/pictures
     ports:
       - "8000:8000"
     env_file:
@@ -32,13 +32,12 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
     container_name: grocery_react_frontend
-    # Assuming standard Vite or Create React App dev server
     command: npm run dev 
     volumes:
       - ./frontend:/app
       - /app/node_modules
     ports:
-      - "3000:3000" # Change to "5173:5173" if using Vite's default port
+      - "3000:3000"
     env_file:
       - .env
     environment:
@@ -46,5 +45,27 @@ services:
     depends_on:
       - backend
 
+  # ── Metabase (Self-hosted BI / Analytics) ──────────────────────────────────
+  # Access at http://localhost:4000 after containers start.
+  # First-time setup: connect to the grocery Postgres DB using:
+  #   Host: db  |  Port: 5432  |  DB: grocery_management  |  User: admin
+  # After creating a chart, use "Public sharing → Copy embed URL" and paste
+  # it into the Metabase field in the Admin → AI Forecasting tab.
+  metabase:
+    image: metabase/metabase:latest
+    container_name: grocery_metabase
+    restart: on-failure
+    ports:
+      - "4000:3000"
+    volumes:
+      - metabase_data:/metabase-data
+    depends_on:
+      - db
+    environment:
+      # Metabase uses H2 embedded storage for its config by default.
+      # No extra Postgres config needed here — connect to grocery Postgres via the UI.
+      JAVA_OPTS: "-Xmx512m"
+
 volumes:
   postgres_data:
+  metabase_data:

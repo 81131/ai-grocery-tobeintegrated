@@ -9,6 +9,8 @@ function AdminOrders() {
   
   // NEW: Search state
   const [searchTerm, setSearchTerm] = useState('');
+  const [availableDrivers, setAvailableDrivers] = useState([]);
+  const [assigning, setAssigning] = useState(false);
   
   const navigate = useNavigate();
 
@@ -35,6 +37,48 @@ function AdminOrders() {
     const interval = setInterval(fetchOrders, 30000);
     return () => clearInterval(interval);
   }, [navigate]);
+
+  useEffect(() => {
+    if (selectedOrder) {
+      fetchAvailableDrivers();
+    }
+  }, [selectedOrder]);
+
+  const fetchAvailableDrivers = async () => {
+    const token = localStorage.getItem('token');
+    try {
+      const res = await fetch('http://localhost:8000/orders/drivers/available', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) setAvailableDrivers(await res.json());
+    } catch (err) {
+      console.error("Failed to fetch drivers:", err);
+    }
+  };
+
+  const assignDriver = async (orderId, driverId) => {
+    if (!driverId) return;
+    setAssigning(true);
+    const token = localStorage.getItem('token');
+    try {
+      const res = await fetch(`http://localhost:8000/orders/${orderId}/assign-driver`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({ driver_id: parseInt(driverId) })
+      });
+      if (res.ok) {
+        alert("Driver assigned successfully! 🚚");
+        fetchOrders();
+        setSelectedOrder(null);
+      } else {
+        alert("Failed to assign driver.");
+      }
+    } catch (err) {
+      console.error("Assign error:", err);
+    } finally {
+      setAssigning(false);
+    }
+  };
 
   const updateOrderStatus = async (orderId, newStatus) => {
     const token = localStorage.getItem('token');
@@ -167,6 +211,7 @@ function AdminOrders() {
             </div>
 
             <div style={{ display: 'flex', gap: '20px', marginBottom: '20px' }}>
+              {/* Column 1: Details & Payment */}
               <div style={{ flex: 1, backgroundColor: 'var(--bg-muted)', padding: '15px', borderRadius: 'var(--radius-md)' }}>
                 <h4 style={{ margin: '0 0 10px 0', color: 'var(--text-main)', borderBottom: '1px solid var(--border-light)', paddingBottom: '5px' }}>Delivery Details</h4>
                 <p style={{ margin: '5px 0', fontSize: '14px' }}><strong>Name:</strong> {selectedOrder.delivery_info?.customer_name}</p>
@@ -174,18 +219,67 @@ function AdminOrders() {
                 
                 <h4 style={{ margin: '15px 0 10px 0', color: 'var(--text-main)', borderBottom: '1px solid var(--border-light)', paddingBottom: '5px' }}>Payment Info</h4>
                 <p style={{ margin: '5px 0', fontSize: '14px' }}><strong>Method:</strong> {selectedOrder.payment_method}</p>
-                
+
                 {selectedOrder.payment_slip_url && (
-                  <div style={{ marginTop: '10px' }}>
-                    <a href={selectedOrder.payment_slip_url} target="_blank" rel="noopener noreferrer" className="btn btn-primary" style={{ padding: '6px 12px', textDecoration: 'none', fontSize: '12px' }}>
-                      <FileText size={16} /> View Payment Slip
+                  <div style={{ marginTop: '12px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+                      <span style={{ fontSize: '13px', fontWeight: '600' }}>Slip Status:</span>
+                      <span style={{
+                        padding: '3px 10px', borderRadius: '20px', fontSize: '12px', fontWeight: '700',
+                        background: selectedOrder.payment_slip_status === 'approved' ? '#d4edda' : selectedOrder.payment_slip_status === 'rejected' ? '#f8d7da' : '#fff3cd',
+                        color: selectedOrder.payment_slip_status === 'approved' ? '#155724' : selectedOrder.payment_slip_status === 'rejected' ? '#721c24' : '#856404',
+                      }}>
+                        {selectedOrder.payment_slip_status === 'approved' ? '✓ Approved' : selectedOrder.payment_slip_status === 'rejected' ? '✗ Rejected' : '⏳ Pending Review'}
+                      </span>
+                    </div>
+                    <a
+                      href={`http://localhost:8000/payment-slips/${selectedOrder.payment_slip_url.split('/').pop()}`}
+                      target="_blank" rel="noopener noreferrer" className="btn btn-primary"
+                      style={{ padding: '6px 12px', textDecoration: 'none', fontSize: '12px', display: 'inline-flex', marginBottom: '8px' }}
+                    >
+                      <FileText size={14} /> View Slip
                     </a>
+                    {selectedOrder.payment_slip_status === 'pending_review' && (
+                      <div style={{ display: 'flex', gap: '8px' }}>
+                        <button className="btn" style={{ padding: '4px 10px', background: '#d4edda', color: '#155724', fontSize: '12px' }}
+                                onClick={async () => {
+                                  const token = localStorage.getItem('token');
+                                  const res = await fetch(`http://localhost:8000/orders/${selectedOrder.id}/review-slip`, {
+                                    method: 'PUT',
+                                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                                    body: JSON.stringify({ action: 'approve' })
+                                  });
+                                  if (res.ok) {
+                                    const data = await res.json();
+                                    const updated = { ...selectedOrder, payment_slip_status: 'approved', current_status: data.new_status };
+                                    setSelectedOrder(updated);
+                                    setOrders(orders.map(o => o.id === selectedOrder.id ? updated : o));
+                                  }
+                                }}>Approve</button>
+                        <button className="btn" style={{ padding: '4px 10px', background: '#f8d7da', color: '#721c24', fontSize: '12px' }}
+                                onClick={async () => {
+                                  const token = localStorage.getItem('token');
+                                  const res = await fetch(`http://localhost:8000/orders/${selectedOrder.id}/review-slip`, {
+                                    method: 'PUT',
+                                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                                    body: JSON.stringify({ action: 'reject' })
+                                  });
+                                  if (res.ok) {
+                                    const updated = { ...selectedOrder, payment_slip_status: 'rejected' };
+                                    setSelectedOrder(updated);
+                                    setOrders(orders.map(o => o.id === selectedOrder.id ? updated : o));
+                                  }
+                                }}>Reject</button>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
-              
-              <div style={{ flex: 1, backgroundColor: 'var(--bg-muted)', padding: '15px', borderRadius: 'var(--radius-md)', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center' }}>
-                <div style={{ display: 'flex', gap: '5px', flexWrap: 'wrap', justifyContent: 'center', marginTop: '15px' }}>
+
+              {/* Column 2: Status Controls */}
+              <div style={{ flex: 1, backgroundColor: 'var(--bg-muted)', padding: '15px', borderRadius: 'var(--radius-md)', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+                <h4 style={{ margin: '0 0 15px 0', textAlign: 'center', color: 'var(--text-main)' }}>Update Status</h4>
+                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', justifyContent: 'center' }}>
                   {['Pending', 'Processing', 'Out for Delivery', 'Completed', 'Cancelled'].map(status => (
                     <button 
                       key={status}
@@ -193,9 +287,10 @@ function AdminOrders() {
                       disabled={selectedOrder.current_status === status}
                       className="btn"
                       style={{ 
-                        padding: '5px 10px', fontSize: '12px',
-                        backgroundColor: selectedOrder.current_status === status ? 'var(--text-light)' : 'var(--bg-surface)',
-                        border: '1px solid var(--border-light)', color: selectedOrder.current_status === status ? 'white' : 'var(--text-main)'
+                        padding: '8px 12px', fontSize: '13px',
+                        backgroundColor: selectedOrder.current_status === status ? 'var(--color-primary)' : 'var(--bg-surface)',
+                        color: selectedOrder.current_status === status ? 'white' : 'var(--text-main)',
+                        border: '1px solid var(--border-light)'
                       }}
                     >
                       {status}
@@ -205,7 +300,59 @@ function AdminOrders() {
               </div>
             </div>
 
-            <h4 style={{ margin: '0 0 10px 0', color: 'var(--text-main)' }}>Packing List (Items to pull from shelves)</h4>
+            {/* NEW: Driver Assignment Section */}
+            <div style={{ backgroundColor: '#f0f9ff', border: '1px solid #bae6fd', padding: '15px', borderRadius: 'var(--radius-md)', marginBottom: '20px' }}>
+              <h4 style={{ margin: '0 0 10px 0', color: '#0369a1', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Package size={18} /> Driver Assignment
+              </h4>
+              
+              {selectedOrder.delivery_info?.driver_name ? (
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <p style={{ margin: 0, fontSize: '15px' }}>
+                    Assigned to: <strong style={{ color: 'var(--color-primary)' }}>{selectedOrder.delivery_info.driver_name}</strong>
+                  </p>
+                  <button 
+                    onClick={() => {
+                      const updated = { ...selectedOrder, delivery_info: { ...selectedOrder.delivery_info, driver_name: null } };
+                      setSelectedOrder(updated);
+                    }}
+                    className="btn btn-secondary" style={{ padding: '4px 10px', fontSize: '11px' }}
+                  >Change Driver</button>
+                </div>
+              ) : (
+                <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                  <select 
+                    id="driver-select"
+                    className="input-field" 
+                    style={{ flex: 1, margin: 0 }}
+                  >
+                    <option value="">-- Select an Available Driver --</option>
+                    {availableDrivers.map(d => (
+                      <option key={d.id} value={d.id}>{d.name}</option>
+                    ))}
+                  </select>
+                  <button 
+                    disabled={assigning}
+                    onClick={() => {
+                      const dId = document.getElementById('driver-select').value;
+                      if (!dId) return alert("Please select a driver first");
+                      assignDriver(selectedOrder.id, dId);
+                    }}
+                    className="btn btn-primary"
+                  >
+                    {assigning ? 'Assigning...' : 'Assign Driver'}
+                  </button>
+                </div>
+              )}
+              {availableDrivers.length === 0 && !selectedOrder.delivery_info?.driver_name && (
+                <p style={{ margin: '8px 0 0 0', fontSize: '12px', color: '#e11d48' }}>
+                  ⚠ No available drivers found. Make sure drivers are marked as available.
+                </p>
+              )}
+            </div>
+
+            <h4 style={{ margin: '0 0 10px 0', color: 'var(--text-main)' }}>Packing List (Shelf Pickups)</h4>
+
             <div style={{ border: '1px solid var(--border-light)', borderRadius: 'var(--radius-md)', overflow: 'hidden' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
                 <thead style={{ backgroundColor: 'var(--bg-surface)', borderBottom: '1px solid var(--border-light)' }}>

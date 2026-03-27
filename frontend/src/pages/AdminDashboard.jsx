@@ -57,7 +57,7 @@ function AdminDashboard() {
       {stats.totalOrders !== undefined && (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px', marginBottom: '24px' }}>
           {[
-            { label: 'Total Revenue', value: `$${(stats.totalRevenue || 0).toFixed(2)}`, color: 'var(--color-primary)' },
+            { label: 'Total Revenue', value: `Rs. ${(stats.totalRevenue || 0).toFixed(2)}`, color: 'var(--color-primary)' },
             { label: 'Total Orders', value: stats.totalOrders ?? 0, color: '#3b82f6' },
             { label: 'Total Products', value: stats.totalProducts ?? 0, color: '#f97316' },
             { label: 'Active Users', value: stats.activeUsers ?? 0, color: '#a855f7' },

@@ -105,14 +105,14 @@ function CheckoutMap({ onLocationSelect, onDistanceCalculated }) {
 
     // 2. Geocoding (Convert coordinates to text ONLY if we don't already have the address from Autocomplete)
     if (knownAddress) {
-      onLocationSelect(knownAddress);
+      onLocationSelect(knownAddress, location.lat, location.lng);
     } else {
       const geocoder = new window.google.maps.Geocoder();
       geocoder.geocode({ location }, (results, status) => {
         if (status === "OK" && results[0]) {
-          onLocationSelect(results[0].formatted_address);
+          onLocationSelect(results[0].formatted_address, location.lat, location.lng);
         } else {
-          onLocationSelect("Custom Map Location");
+          onLocationSelect("Custom Map Location", location.lat, location.lng);
         }
       });
     }

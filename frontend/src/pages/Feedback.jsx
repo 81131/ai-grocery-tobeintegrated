@@ -115,53 +115,59 @@ export default function Feedback() {
           </div>
         )}
 
-        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-          <div>
-            <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', color: 'var(--text-main)', marginBottom: '6px' }}>Select Product</label>
-            <select
-              className="input-field"
-              value={form.product_id || ''}
-              onChange={(e) => {
-                const selectedId = e.target.value;
-                const selectedProduct = products.find(p => p.id === parseInt(selectedId));
-                setForm(f => ({
-                  ...f,
-                  product_id: selectedId ? parseInt(selectedId) : null,
-                  product_name: selectedProduct ? selectedProduct.name : ''
-                }));
-              }}
-              required
-              style={{ padding: '10px 14px', width: '100%', borderRadius: '8px', border: '1px solid var(--border-light)', fontSize: '14px', backgroundColor: 'white' }}
-            >
-              <option value="" disabled>-- Choose a product to review --</option>
-              {products.map(p => (
-                <option key={p.id} value={p.id}>{p.name}</option>
-              ))}
-            </select>
+        {products.length === 0 ? (
+          <div style={{ backgroundColor: '#fff3cd', border: '1px solid #ffeeba', color: '#856404', padding: '16px', borderRadius: '8px', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            There are currently no products available to review in the storefront.
           </div>
+        ) : (
+          <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            <div>
+              <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', color: 'var(--text-main)', marginBottom: '6px' }}>Select Product</label>
+              <select
+                className="input-field"
+                value={form.product_id || ''}
+                onChange={(e) => {
+                  const selectedId = e.target.value;
+                  const selectedProduct = products.find(p => p.id === parseInt(selectedId));
+                  setForm(f => ({
+                    ...f,
+                    product_id: selectedId ? parseInt(selectedId) : null,
+                    product_name: selectedProduct ? selectedProduct.name : ''
+                  }));
+                }}
+                required
+                style={{ padding: '10px 14px', width: '100%', borderRadius: '8px', border: '1px solid var(--border-light)', fontSize: '14px', backgroundColor: 'white' }}
+              >
+                <option value="" disabled>-- Choose a product to review --</option>
+                {products.map(p => (
+                  <option key={p.id} value={p.id}>{p.name}</option>
+                ))}
+              </select>
+            </div>
 
-          <div>
-            <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', color: 'var(--text-main)', marginBottom: '8px' }}>Your Rating</label>
-            <StarRating value={form.rating} onChange={val => setForm(f => ({ ...f, rating: val }))} />
-          </div>
+            <div>
+              <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', color: 'var(--text-main)', marginBottom: '8px' }}>Your Rating</label>
+              <StarRating value={form.rating} onChange={val => setForm(f => ({ ...f, rating: val }))} />
+            </div>
 
-          <div>
-            <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', color: 'var(--text-main)', marginBottom: '6px' }}>Your Review</label>
-            <textarea
-              className="input-field"
-              placeholder="Share your experience..."
-              value={form.message}
-              onChange={e => setForm(f => ({ ...f, message: e.target.value }))}
-              required
-              rows={4}
-              style={{ resize: 'vertical', minHeight: '100px' }}
-            />
-          </div>
+            <div>
+              <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', color: 'var(--text-main)', marginBottom: '6px' }}>Your Review</label>
+              <textarea
+                className="input-field"
+                placeholder="Share your experience..."
+                value={form.message}
+                onChange={e => setForm(f => ({ ...f, message: e.target.value }))}
+                required
+                rows={4}
+                style={{ resize: 'vertical', minHeight: '100px' }}
+              />
+            </div>
 
-          <button type="submit" disabled={submitting} className="btn btn-primary" style={{ alignSelf: 'flex-start', padding: '11px 24px', borderRadius: '8px', gap: '8px' }}>
-            <Send size={15} /> {submitting ? 'Submitting...' : 'Submit Review'}
-          </button>
-        </form>
+            <button type="submit" disabled={submitting} className="btn btn-primary" style={{ alignSelf: 'flex-start', padding: '11px 24px', borderRadius: '8px', gap: '8px' }}>
+              <Send size={15} /> {submitting ? 'Submitting...' : 'Submit Review'}
+            </button>
+          </form>
+        )}
       </div>
 
       {/* My Previous Reviews */}

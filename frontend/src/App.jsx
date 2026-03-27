@@ -13,6 +13,7 @@ import ProductDetails from './pages/ProductDetails';
 import CustomerDashboard from './pages/CustomerDashboard';
 import Feedback from './pages/Feedback';
 import Chat from './pages/Chat';
+import DriverDashboard from './pages/DriverDashboard';
 import { ToastProvider } from './context/ToastContext';
 
 function NavBar({ isLoggedIn, userRole, handleLogout }) {
@@ -127,6 +128,11 @@ function NavBar({ isLoggedIn, userRole, handleLogout }) {
                 <Settings size={15} /> Admin
               </Link>
             )}
+            {userRole === 'driver' && (
+              <Link to="/driver" style={{ ...linkStyle, backgroundColor: '#00a247', color: 'white', padding: '7px 14px', borderRadius: '7px' }}>
+                <LayoutDashboard size={15} /> Driver Portal
+              </Link>
+            )}
             <button
               onClick={(e) => { e.preventDefault(); handleLogout(); }}
               style={{ display: 'flex', alignItems: 'center', gap: '6px', backgroundColor: 'var(--danger)', color: 'white', border: 'none', borderRadius: '7px', padding: '7px 14px', cursor: 'pointer', fontSize: '14px', fontWeight: '500' }}
@@ -187,6 +193,7 @@ function App() {
               <Route path="/product/:id" element={<ProductDetails />} />
               <Route path="/feedback" element={<Feedback />} />
               <Route path="/dashboard" element={<CustomerDashboard />} />
+              <Route path="/driver" element={<DriverDashboard />} />
               <Route path="/chat" element={<Chat />} />
             </Routes>
           </div>

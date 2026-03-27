@@ -97,7 +97,7 @@ function AdminInventory() {
   const formatKeyword = (text) => {
     let cleaned = text.trim();
     if (!cleaned.startsWith('#')) cleaned = '#' + cleaned;
-    cleaned = cleaned.replace(/([a-z])([A-Z])/g, '$1 $2');
+    cleaned = cleaned.replace(/([a-z])([A-Z])/g, 'Rs. 1 $2');
     return '#' + cleaned.charAt(1).toUpperCase() + cleaned.slice(2);
   };
 
